@@ -1,0 +1,108 @@
+# The whole of this file is temporary, exactly as it is in the service template: it is replaced
+# by a call to cloudsforge/.github/.github/workflows/web-ci.yml, and the target for repositories
+# with a bespoke CI file is zero. The second checkout below is the reason it still exists —
+# @cloudsforge/ui is consumed from a sibling directory until it is published.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: web-template
+
+      # Temporary: the sibling layout the `file:` dependency resolves against.
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudsforge/ui
+          path: ui
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web-template/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        working-directory: web-template
+
+      - run: pnpm typecheck
+        working-directory: web-template
+
+      - run: pnpm test
+        working-directory: web-template
+
+      - run: pnpm build
+        working-directory: web-template
+
+  rules:
+    # The estate rules that are cheaper to grep than to review. Each one has been broken at least
+    # once by a change that looked correct in isolation.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No build-time configuration
+        # The same rule as test/no-build-time-config.test.ts, checked again here so it fails even
+        # if somebody deletes the test along with the line it forbids.
+        run: |
+          if grep -rn --include='*.ts' --include='*.tsx' --include='*.html' \
+               -e 'import\.meta\.env' -e 'VITE_' src index.html; then
+            echo "::error::this bundle must read no build-time environment; hosts come from cloudsforgeHosts() at runtime"
+            exit 1
+          fi
+
+      - name: No hard-coded CloudsForge hostname
+        # A literal hostname is a second, unversioned copy of the surface registry, and the copy
+        # is the one that will be wrong.
+        run: |
+          if grep -rn --include='*.ts' --include='*.tsx' 'cloudsforge\.online' src; then
+            echo "::error::resolve hosts through cloudsforgeHosts() rather than naming them"
+            exit 1
+          fi
+
+      - name: The SPA fallback keeps its 404
+        # `try_files ... /index.html` in the catch-all location is how an app starts answering 200
+        # for every address that does not exist.
+        run: |
+          if grep -nE 'try_files\s+\$uri\s+(\$uri/\s+)?/index\.html' nginx.conf; then
+            echo "::error::unknown paths must 404; serve the shell through error_page 404 /index.html"
+            exit 1
+          fi
+          grep -q 'error_page 404 /index.html' nginx.conf
+
+      - name: The auth callback is redeemed before the app renders
+        run: grep -q 'bootstrapSession' src/main.tsx
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: web-template
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudsforge/ui
+          path: ui
+
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: web-template
+          build-contexts: uipkg=ui
+          build-args: RELEASE=${{ github.sha }}
+          push: false
