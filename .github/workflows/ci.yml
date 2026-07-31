@@ -134,3 +134,43 @@ jobs:
           build-contexts: uipkg=ui
           build-args: RELEASE=${{ github.sha }}
           push: false
+          load: true
+          tags: web-template:ci
+
+      # PROBED, NOT READ. Both defects this step guards were invisible in the config and obvious in
+      # a response: nginx's `add_header` is all-or-nothing per level, so a location that sets
+      # Cache-Control silently loses every inherited security header; and `try_files` is a file
+      # lookup rather than an internal redirect, so serving /index.html from `location = /` never
+      # enters `location = /index.html`. Reading the file suggests both are fine. Curling it does
+      # not.
+      - name: The served headers are the ones the config appears to promise
+        working-directory: web-template
+        run: |
+          set -uo pipefail
+          docker run -d --rm --name wt-ci -p 127.0.0.1:8099:8080 web-template:ci
+          for _ in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:8099/ && break; sleep 1; done
+
+          fail=0
+          check() { # url, header, expected-substring, label
+            got=$(curl -sI "$1" | tr -d '\r' | grep -i "^$2:" | cut -d' ' -f2- || true)
+            case "${got:-}" in
+              "") echo "::error::$4 is missing $2"; fail=1 ;;
+              *"$3"*) echo "  ok   $4: $2: $got" ;;
+              *) echo "::error::$4 is missing or wrong for $2 (got '${got:-nothing}', wanted '$3')"; fail=1 ;;
+            esac
+          }
+
+          asset=$(curl -s http://127.0.0.1:8099/ | grep -oE '/assets/[^"]+\.js' | head -1)
+          for h in X-Content-Type-Options X-Frame-Options Referrer-Policy; do
+            check "http://127.0.0.1:8099/" "$h" "" "the shell"
+            [ -n "$asset" ] && check "http://127.0.0.1:8099$asset" "$h" "" "a hashed asset"
+          done
+          check "http://127.0.0.1:8099/" Cache-Control "no-store" "the shell"
+          [ -n "$asset" ] && check "http://127.0.0.1:8099$asset" Cache-Control "immutable" "a hashed asset"
+
+          # And the honest 404 the whole config exists to preserve.
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8099/nope/not/a/route)
+          [ "$code" = "404" ] || { echo "::error::an unknown path returned $code, not 404"; fail=1; }
+
+          docker rm -f wt-ci >/dev/null 2>&1 || true
+          exit $fail
