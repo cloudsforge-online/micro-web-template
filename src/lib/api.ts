@@ -101,6 +101,56 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Pull the sentence, the code and the request id out of a service's error body.
+ *
+ * The estate's envelope is **nested** — `{error: {code, message, requestId}}`, built by
+ * `errorReply()` in every service (`hub-api/src/server.ts:589`, `identity/src/server.ts:1431`,
+ * `service-template/src/server.ts:342`). This function used to read it as flat, assigning
+ * `data.error` — an object — straight to the displayed message. Every server-side failure in
+ * every app cut from this template would have rendered as `[object Object]`, with the real
+ * message, the code and the request id all present in the response and all discarded. The
+ * request id is the one thing a support conversation runs on, so the failure mode was not
+ * cosmetic: it destroyed exactly the field the app exists to show.
+ *
+ * Both shapes are accepted rather than only the nested one, because a proxy or an older service
+ * on the rollback path may still answer flat, and a template that only understands the current
+ * estate is a template that breaks during the migration it was written for.
+ */
+export function readErrorBody(body: unknown): {
+  message?: string
+  code?: string
+  requestId?: string
+} {
+  if (typeof body !== 'object' || body === null) return {}
+  const top = body as { error?: unknown; code?: unknown; requestId?: unknown; message?: unknown }
+  const nested =
+    typeof top.error === 'object' && top.error !== null
+      ? (top.error as { code?: unknown; message?: unknown; requestId?: unknown })
+      : undefined
+
+  // A string `error` is the flat shape's message. An object `error` is the nested envelope, and
+  // its fields win over any same-named field at the top level.
+  const message =
+    pickString(nested?.message) ??
+    (typeof top.error === 'string' ? top.error : undefined) ??
+    pickString(top.message)
+
+  return {
+    ...(message ? { message } : {}),
+    ...(pickString(nested?.code) ?? pickString(top.code)
+      ? { code: (pickString(nested?.code) ?? pickString(top.code)) as string }
+      : {}),
+    ...(pickString(nested?.requestId) ?? pickString(top.requestId)
+      ? { requestId: (pickString(nested?.requestId) ?? pickString(top.requestId)) as string }
+      : {}),
+  }
+}
+
+function pickString(v: unknown): string | undefined {
+  return typeof v === 'string' && v.length > 0 ? v : undefined
+}
+
 /** What a failure state needs: the sentence, and the id to quote at support. */
 export interface ErrorNotice {
   message: string
@@ -267,10 +317,10 @@ async function request<T>(base: string, path: string, opts: RequestOptions = {})
     let message = res.statusText || `Request failed (${res.status})`
     let code: string | undefined
     try {
-      const data = (await res.json()) as { error?: string; code?: string; requestId?: string }
-      if (data?.error) message = data.error
-      if (data?.code) code = data.code
-      if (data?.requestId) requestId = data.requestId
+      const parsed = readErrorBody(await res.json())
+      if (parsed.message) message = parsed.message
+      if (parsed.code) code = parsed.code
+      if (parsed.requestId) requestId = parsed.requestId
     } catch (err) {
       // A non-JSON error body means something in FRONT of the service answered — a gateway, a
       // CDN, a misrouted deploy — and the request never reached it. Nothing server-side logs

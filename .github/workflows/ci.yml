@@ -77,12 +77,19 @@ jobs:
       - name: The SPA fallback keeps its 404
         # `try_files ... /index.html` in the catch-all location is how an app starts answering 200
         # for every address that does not exist.
+        #
+        # Comments are stripped before the check. nginx.conf's own header quotes the forbidden
+        # directive while explaining why it is forbidden, so the unstripped grep matched the
+        # documentation and this step failed on a pristine template — every frontend cut from it
+        # would have started life with a red pipeline over a line of prose. A guard that fires on
+        # its own rationale trains people to disable the guard.
         run: |
-          if grep -nE 'try_files\s+\$uri\s+(\$uri/\s+)?/index\.html' nginx.conf; then
+          sed 's/#.*//' nginx.conf > /tmp/nginx.effective
+          if grep -nE 'try_files\s+\$uri\s+(\$uri/\s+)?/index\.html' /tmp/nginx.effective; then
             echo "::error::unknown paths must 404; serve the shell through error_page 404 /index.html"
             exit 1
           fi
-          grep -q 'error_page 404 /index.html' nginx.conf
+          grep -q 'error_page 404 /index.html' /tmp/nginx.effective
 
       - name: The auth callback is redeemed before the app renders
         run: grep -q 'bootstrapSession' src/main.tsx

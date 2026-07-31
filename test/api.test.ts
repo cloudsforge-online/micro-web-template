@@ -25,6 +25,7 @@ import {
   getRefreshToken,
   hasSession,
   noticeFor,
+  readErrorBody,
   refreshSession,
   setTokens,
 } from '../src/lib/api.ts'
@@ -257,5 +258,57 @@ describe('auth callback', () => {
     setTokens({ accessToken: 'a1', refreshToken: 'r1' })
     stub = installFetch(() => json(200, {}))
     assert.equal(await bootstrapSession(), true)
+  })
+})
+
+describe('the error envelope', () => {
+  // Regression, found while cutting micro-hub-web from this template. The estate serves a NESTED
+  // envelope and this client read it as flat, so `message` was assigned an object and every
+  // server-side failure rendered as `[object Object]` — discarding the message, the code and the
+  // request id, which is the single field a support conversation runs on.
+  it('reads the nested envelope every service actually sends', () => {
+    assert.deepEqual(
+      readErrorBody({ error: { code: 'rate_unavailable', message: 'No usable price.', requestId: 'req-77' } }),
+      { message: 'No usable price.', code: 'rate_unavailable', requestId: 'req-77' },
+    )
+  })
+
+  it('never yields a non-string message, whatever the body holds', () => {
+    const { message } = readErrorBody({ error: { message: 'Refused.' } })
+    assert.equal(typeof message, 'string')
+    assert.notEqual(message, '[object Object]')
+  })
+
+  it('still reads the flat shape, for a proxy or a service on the rollback path', () => {
+    assert.deepEqual(readErrorBody({ error: 'Refused.', code: 'forbidden', requestId: 'req-9' }), {
+      message: 'Refused.',
+      code: 'forbidden',
+      requestId: 'req-9',
+    })
+  })
+
+  it('ignores a body that carries nothing usable rather than inventing a sentence', () => {
+    assert.deepEqual(readErrorBody({}), {})
+    assert.deepEqual(readErrorBody(null), {})
+    assert.deepEqual(readErrorBody('gateway timeout'), {})
+    assert.deepEqual(readErrorBody({ error: {} }), {})
+    assert.deepEqual(readErrorBody({ error: { message: '' } }), {}, 'an empty string is not a message')
+  })
+
+  it('surfaces the nested fields through ApiError, which is what the failure states render', async () => {
+    stub = installFetch(() =>
+      json(422, { error: { code: 'below_minimum', message: 'Amount is below the minimum.', requestId: 'req-42' } }),
+    )
+    await assert.rejects(
+      () => api('/v1/withdrawals', { method: 'POST' }),
+      (err: unknown) => {
+        assert.ok(err instanceof ApiError)
+        assert.equal(err.message, 'Amount is below the minimum.')
+        assert.equal(err.code, 'below_minimum')
+        assert.equal(err.requestId, 'req-42')
+        assert.equal(noticeFor(err, 'fallback').message, 'Amount is below the minimum.')
+        return true
+      },
+    )
   })
 })
