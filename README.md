@@ -127,7 +127,7 @@ tree, which also means an edit in the design system is visible here without a re
 
 ## Tests
 
-`node:test`, no DOM. 60 tests across five files.
+`node:test`, no DOM. 65 tests across five files.
 
 | File | What it pins |
 | --- | --- |

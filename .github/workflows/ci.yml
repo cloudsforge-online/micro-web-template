@@ -1,7 +1,16 @@
 # The whole of this file is temporary, exactly as it is in the service template: it is replaced
-# by a call to cloudsforge/.github/.github/workflows/web-ci.yml, and the target for repositories
-# with a bespoke CI file is zero. The second checkout below is the reason it still exists —
-# @cloudsforge/ui is consumed from a sibling directory until it is published.
+# by a call to cloudsforge-online/micro-org/.github/workflows/web-ci.yml, and the target for
+# repositories with a bespoke CI file is zero. The second checkout below is the reason it still
+# exists — @cloudsforge/ui is consumed from a sibling directory until it is published.
+#
+# THE REPOSITORY IN THAT CHECKOUT MUST BE THE REAL ONE. It said `cloudsforge/ui`, which is a
+# different organisation AND a different repository name from the design system's actual home,
+# `cloudsforge-online/micro-ui`. Neither the `build` job nor the `image` job can survive that: the
+# checkout fails, so `pnpm install --frozen-lockfile` has no sibling directory for the
+# `link:../ui/packages/ui` specifier to resolve against, and the Docker build has no `uipkg`
+# context to name. Both jobs failed on the pristine template, on every push, and every frontend cut
+# from it started life with a red pipeline it had to fix locally before it could do anything else —
+# which is exactly how a wrong value survives upstream while every consumer quietly works around it.
 name: ci
 
 on:
@@ -21,10 +30,10 @@ jobs:
         with:
           path: web-template
 
-      # Temporary: the sibling layout the `file:` dependency resolves against.
+      # Temporary: the sibling layout the `link:` dependency resolves against.
       - uses: actions/checkout@v4
         with:
-          repository: cloudsforge/ui
+          repository: cloudsforge-online/micro-ui
           path: ui
 
       - uses: pnpm/action-setup@v4
@@ -102,7 +111,7 @@ jobs:
           path: web-template
       - uses: actions/checkout@v4
         with:
-          repository: cloudsforge/ui
+          repository: cloudsforge-online/micro-ui
           path: ui
 
       - uses: docker/setup-buildx-action@v3
