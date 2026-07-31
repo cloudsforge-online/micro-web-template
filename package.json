@@ -1,6 +1,7 @@
 {
   "name": "@cloudsforge/web-template",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.9.0",
   "private": true,
   "description": "The skeleton every CloudsForge single-page application is instantiated from.",
   "license": "MIT",
