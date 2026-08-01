@@ -17,7 +17,27 @@
       rather than a configuration: it names the artefact, it does not tell it where it is running.
     -->
     <meta name="cf-release" content="dev" />
+    <!--
+      PLACEHOLDER CHROME — replace these four files with the set for YOUR surface, from
+      micro-brand's `assets/<surface>/`. They are the company marks so that a freshly cut frontend
+      is never iconless: three frontends shipped with the browser's blank-page glyph in the tab
+      and a bare URL wherever they were shared, because nothing asserted a page has an icon and
+      nothing inherited one. test/brand-chrome.test.ts is what fails now if they go missing.
+    -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/favicon-192x192.png" />
+
     <title>Forge Trade</title>
+  
+    <!-- Relative on purpose: one bundle serves localhost, preview and the apex, and this file
+         names no hostname. Crawlers resolve it against the page they fetched. An absolute URL
+         here would bake a hostname into the artefact — the same defect as build-time config. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CloudsForge" />
+    <meta property="og:description" content="Replace this with the surface's own description." />
+    <meta property="og:image" content="/og-1200x630.png" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>
