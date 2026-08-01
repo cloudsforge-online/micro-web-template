@@ -335,7 +335,13 @@ async function request<T>(base: string, path: string, opts: RequestOptions = {})
         context: { method, contentType: res.headers.get('content-type') },
       })
     }
-    if (res.status === 401 && auth) expireSession()
+    // `auth` means "attach a bearer IF we hold one", not "we hold one". A 401 on a call made
+    // without a session is the server saying the route needs authentication — not that a session
+    // ended — and expiring one that never existed dispatches cf:auth-expired, which signs the user
+    // out of a session they never had. Latent in every app that gates its calls behind a session;
+    // micro-explorer-web is where it fires, because that surface reads a service which refuses
+    // anonymous callers, so EVERY request 401s and each one raised a spurious expiry.
+    if (res.status === 401 && auth && hasSession()) expireSession()
     throw new ApiError(res.status, message, code, requestId)
   }
 

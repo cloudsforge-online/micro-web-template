@@ -28,6 +28,10 @@ export default defineConfig({
     // that is only safe when every rebuild produces a new filename.
     sourcemap: true,
   },
-  server: { port: 5180 },
-  preview: { port: 5180 },
+  // 5199, high in the range and deliberately not next to anything real. This was 5180 — the port
+  // micro-hub-web binds — so every frontend cut from this template arrived already colliding with
+  // the estate's main app, and two of them (hub-web, status-web) shipped that way. A template's
+  // port is inherited by everything, so it must be the one value that is obviously a placeholder.
+  server: { port: 5199 },
+  preview: { port: 5199 },
 })
