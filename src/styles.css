@@ -15,7 +15,7 @@ body {
   margin: 0;
   background: var(--cf-bg);
   color: var(--cf-fg);
-  font-family: var(--cf-font, system-ui, sans-serif);
+  font-family: var(--cf-font-sans);
   /* The bar is dark on every surface; the page follows the substrate. */
   color-scheme: dark;
 }
@@ -32,7 +32,7 @@ body {
   top: var(--cf-bar-h);
   z-index: 40;
   background: var(--cf-bg-raised);
-  border-bottom: 1px solid var(--cf-border, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--cf-line);
 }
 
 .wt-subnav__inner {
@@ -96,7 +96,7 @@ body {
 
 .wt-panel {
   background: var(--cf-surface-solid);
-  border: 1px solid var(--cf-border, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--cf-line);
   border-radius: 10px;
   padding: 1rem 1.1rem;
   margin-bottom: 1rem;
@@ -120,7 +120,7 @@ body {
   margin: 0 0 1rem;
   padding: 0.6rem 0.8rem;
   border-radius: 8px;
-  border: 1px dashed var(--cf-border, rgba(255, 255, 255, 0.18));
+  border: 1px dashed var(--cf-line-strong);
   color: var(--cf-fg-dim);
   font-size: 0.85rem;
 }
@@ -192,21 +192,21 @@ body {
 }
 
 .wt-state--empty {
-  border: 1px dashed var(--cf-border, rgba(255, 255, 255, 0.14));
+  border: 1px dashed var(--cf-line-strong);
   color: var(--cf-fg-dim);
 }
 
 .wt-state--failed {
-  border: 1px solid var(--cf-critical, #d6412f);
+  border: 1px solid var(--cf-danger);
 }
 
 .wt-state--failed .wt-state__icon,
 .wt-state--forbidden .wt-state__icon {
-  color: var(--cf-critical, #d6412f);
+  color: var(--cf-danger);
 }
 
 .wt-state--forbidden {
-  border: 1px solid var(--cf-border, rgba(255, 255, 255, 0.14));
+  border: 1px solid var(--cf-line-strong);
   background: var(--cf-bg-sunken);
 }
 
@@ -226,7 +226,7 @@ body {
   width: 1.1rem;
   height: 1.1rem;
   border-radius: 50%;
-  border: 2px solid var(--cf-border, rgba(255, 255, 255, 0.2));
+  border: 2px solid var(--cf-line-strong);
   border-top-color: var(--cf-accent);
   animation: wt-spin 0.7s linear infinite;
 }
