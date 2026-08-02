@@ -1,17 +1,33 @@
-# The whole of this file is temporary, exactly as it is in the service template: it is replaced
-# by a call to cloudsforge-online/micro-org/.github/workflows/web-ci.yml, and the target for
-# repositories with a bespoke CI file is zero. The second checkout below is the reason it still
-# exists — @cloudsforge/ui is consumed from a sibling directory until it is published.
+name: CI
+
+# ────────────────────────────────────────────────────────────────────────────────────────────────
+# THIS IS THE FILE EVERY NEW FRONTEND INHERITS. Copy the repository, change two values in the `ci`
+# job, and the new app is already covered by every estate-wide rule.
 #
-# THE REPOSITORY IN THAT CHECKOUT MUST BE THE REAL ONE. It said `cloudsforge/ui`, which is a
-# different organisation AND a different repository name from the design system's actual home,
-# `cloudsforge-online/micro-ui`. Neither the `build` job nor the `image` job can survive that: the
-# checkout fails, so `pnpm install --frozen-lockfile` has no sibling directory for the
-# `link:../ui/packages/ui` specifier to resolve against, and the Docker build has no `uipkg`
-# context to name. Both jobs failed on the pristine template, on every push, and every frontend cut
-# from it started life with a red pipeline it had to fix locally before it could do anything else —
-# which is exactly how a wrong value survives upstream while every consumer quietly works around it.
-name: ci
+# The header of the file this replaces said it was "temporary … replaced by a call to
+# cloudsforge-online/micro-org/.github/workflows/web-ci.yml", and named the reason it had not
+# happened: @cloudsforge/ui is unpublished and consumed as `link:../ui/packages/ui`, while the
+# reusable workflow did a single checkout. Every one of the estate's thirteen frontends says the
+# same thing in the same words, and the count of repositories actually calling web-ci.yml was zero.
+#
+# THAT WAS NEVER REALLY A WAIT FOR PUBLICATION. It was one missing checkout: service-ci.yml had
+# already solved the identical problem for the service repositories by putting the app and its
+# sibling side by side and installing the sibling first. web-ci.yml now does the same — app in
+# `app/`, micro-ui beside it, and `uipkg` passed to the image build as a named context — so this
+# repository, and the twelve frontends cut from it, can stop carrying 200-900 lines of CI each.
+#
+# WHAT TO CHANGE WHEN YOU COPY THIS:
+#   * `app:`              the new frontend's registry name.
+#   * `deep-link-path:`   a route the app REALLY has, which must survive a hard refresh. Leave it
+#                         empty rather than inventing one — the unknown-path 404 check always runs,
+#                         and requiring 200 from a path the app does not own is the opposite of the
+#                         honest-404 rule this template's nginx.conf exists to hold.
+#
+# The two jobs below are NOT duplicates of the reusable workflow. `rules` checks properties of this
+# repository's nginx.conf and entry point that no shared workflow can know about; `served-headers`
+# PROBES the running image for headers the config only appears to promise. Both are stricter than
+# their nearest equivalent upstream, so both stay.
+# ────────────────────────────────────────────────────────────────────────────────────────────────
 
 on:
   push:
@@ -23,65 +39,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: web-template
-
-      # Temporary: the sibling layout the `link:` dependency resolves against.
-      - uses: actions/checkout@v4
-        with:
-          repository: cloudsforge-online/micro-ui
-          path: ui
-          # micro-ui is private; without a contents:read token this checkout 404s and the job
-          # dies before install. Same wiring as the service repos' runtime checkout.
-          token: ${{ secrets.ESTATE_READ_TOKEN }}
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: web-template/pnpm-lock.yaml
-
-      # `link:` resolves to the sibling's own node_modules, so the design system must be
-      # installed before this repository is — without this, `tsc` cannot resolve ../ui's own
-      # imports (react, react/jsx-runtime) when it typechecks the linked sources.
-      - name: Install the sibling design system
-        run: pnpm --dir ui install --frozen-lockfile
-
-      - run: pnpm install --frozen-lockfile
-        working-directory: web-template
-
-      - run: pnpm typecheck
-        working-directory: web-template
-
-      - run: pnpm test
-        working-directory: web-template
-
-      - run: pnpm build
-        working-directory: web-template
+  ci:
+    uses: cloudsforge-online/micro-org/.github/workflows/web-ci.yml@main
+    with:
+      app: web-template
+      # `/settings` is a real route: src/app.tsx declares it and nginx.conf gives it its own
+      # location block. That pairing is the whole point of the input — a route the app owns must
+      # survive a hard refresh, and a route it does not own must still 404.
+      deep-link-path: /settings
+    secrets:
+      # micro-ui is private; without a contents:read token the sibling checkout 404s, the
+      # `link:../ui/packages/ui` specifier installs as a dangling symlink, and Typecheck cannot
+      # resolve a single @cloudsforge/ui export.
+      estate_token: ${{ secrets.ESTATE_READ_TOKEN }}
+    permissions:
+      contents: read
+      packages: read
 
   rules:
     # The estate rules that are cheaper to grep than to review. Each one has been broken at least
     # once by a change that looked correct in isolation.
+    name: Estate rules this repository adds
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
       - name: No build-time configuration
-        # The same rule as test/no-build-time-config.test.ts, checked again here so it fails even
-        # if somebody deletes the test along with the line it forbids.
+        # Broader than the reusable workflow's version, deliberately. That one matches
+        # `import.meta.env.VITE_*`; this matches `import.meta.env` at all and bare `VITE_`, and it
+        # reads index.html as well as src/. It is the same rule as
+        # test/no-build-time-config.test.ts, checked again here so it fails even if somebody
+        # deletes the test along with the line it forbids.
         run: |
           if grep -rn --include='*.ts' --include='*.tsx' --include='*.html' \
                -e 'import\.meta\.env' -e 'VITE_' src index.html; then
             echo "::error::this bundle must read no build-time environment; hosts come from cloudsforgeHosts() at runtime"
             exit 1
           fi
+          echo "ok: no build-time environment"
 
       - name: No hard-coded CloudsForge hostname
         # A literal hostname is a second, unversioned copy of the surface registry, and the copy
@@ -91,6 +88,7 @@ jobs:
             echo "::error::resolve hosts through cloudsforgeHosts() rather than naming them"
             exit 1
           fi
+          echo "ok: no hard-coded hostname"
 
       - name: The SPA fallback keeps its 404
         # `try_files ... /index.html` in the catch-all location is how an app starts answering 200
@@ -108,22 +106,37 @@ jobs:
             exit 1
           fi
           grep -q 'error_page 404 /index.html' /tmp/nginx.effective
+          echo "ok: the SPA fallback keeps its 404"
 
       - name: The auth callback is redeemed before the app renders
-        run: grep -q 'bootstrapSession' src/main.tsx
+        run: |
+          grep -q 'bootstrapSession' src/main.tsx
+          echo "ok: the session is bootstrapped before render"
 
-  image:
+  served-headers:
+    # PROBED, NOT READ, and this is the job that most deserves to survive the migration. Both
+    # defects it guards were invisible in the config and obvious in a response: nginx's
+    # `add_header` is all-or-nothing per level, so a location that sets Cache-Control silently
+    # loses every inherited security header; and `try_files` is a file lookup rather than an
+    # internal redirect, so serving /index.html from `location = /` never enters
+    # `location = /index.html`. Reading the file suggests both are fine. Curling it does not.
+    #
+    # The reusable workflow's image job checks that the app answers 200, that an unknown path 404s
+    # and that the deep link survives a refresh. It does not read a single header, so none of this
+    # is duplicated there.
+    name: The served headers are the ones the config appears to promise
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: web-template
+        with: { path: web-template }
+      # Temporary: the sibling the `link:` dependency and the Dockerfile's `uipkg` context resolve
+      # against, until @cloudsforge/ui is published.
       - uses: actions/checkout@v4
         with:
           repository: cloudsforge-online/micro-ui
           path: ui
-          # micro-ui is private; without a contents:read token this checkout 404s and the job
-          # dies before install. Same wiring as the service repos' runtime checkout.
           token: ${{ secrets.ESTATE_READ_TOKEN }}
 
       - uses: docker/setup-buildx-action@v3
@@ -135,19 +148,15 @@ jobs:
           build-args: RELEASE=${{ github.sha }}
           push: false
           load: true
-          tags: web-template:ci
+          tags: web-template:headers
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      # PROBED, NOT READ. Both defects this step guards were invisible in the config and obvious in
-      # a response: nginx's `add_header` is all-or-nothing per level, so a location that sets
-      # Cache-Control silently loses every inherited security header; and `try_files` is a file
-      # lookup rather than an internal redirect, so serving /index.html from `location = /` never
-      # enters `location = /index.html`. Reading the file suggests both are fine. Curling it does
-      # not.
-      - name: The served headers are the ones the config appears to promise
+      - name: Probe the running image
         working-directory: web-template
         run: |
           set -uo pipefail
-          docker run -d --rm --name wt-ci -p 127.0.0.1:8099:8080 web-template:ci
+          docker run -d --rm --name wt-ci -p 127.0.0.1:8099:8080 web-template:headers
           for _ in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:8099/ && break; sleep 1; done
 
           fail=0
