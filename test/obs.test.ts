@@ -188,7 +188,7 @@ describe('the send', () => {
       // Must resolve, not reject. Rule 1.
       await flush()
       assert.equal(warnings.length, 1)
-      assert.match(String(warnings[0]?.[0]), /ingest refused: 404/)
+      assert.match(String(warnings[0]?.[0]), /ingest rejected this batch — 404/)
     } finally {
       console.warn = originalWarn
       fetch.restore()

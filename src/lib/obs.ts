@@ -309,7 +309,11 @@ export async function flush(useBeacon = false): Promise<void> {
     // the page, and rule 2 says a failed report must not produce a report.
     // ────────────────────────────────────────────────────────────────────────────────────────
     if (!res.ok) {
-      console.warn(`[obs] ingest refused: ${res.status} ${res.statusText}`, await safeBody(res))
+      // Worded WITHOUT the string "refused" followed by a colon, deliberately. A sibling surface's
+      // render guard forbids that pattern anywhere under src/, to stop a retired refusal-state UI
+      // reappearing. A telemetry log line is not that UI, but the guard is worth more than the
+      // wording, so this bends rather than the check.
+      console.warn(`[obs] ingest rejected this batch — ${res.status} ${res.statusText}`, await safeBody(res))
       return
     }
 
