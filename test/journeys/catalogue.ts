@@ -30,7 +30,7 @@
  * suite rather than reporting green when a scenario tries.
  */
 import assert from 'node:assert/strict'
-import { assertMounted, open } from './browser.ts'
+import { assertMounted, renderOnlyWithStubbedNetwork } from './browser.ts'
 import { assertAxeClean, assertKnownStillBroken, assertLandmarks, assertSkipLink, type KnownViolation } from './axe.ts'
 import type { Scenario } from './scenario.ts'
 
@@ -145,7 +145,7 @@ export const CATALOGUE: readonly Scenario[] = [
       const asset = await surface.fetchStatus('/assets/nope.js')
       assert.equal(asset.status, 404)
 
-      const session = await open(surface.origin, { path: '/nope', stubs: [] })
+      const session = await renderOnlyWithStubbedNetwork(surface.origin, { path: '/nope', stubs: [] })
       try {
         assert.equal(session.status, 404)
         await assertMounted(session, { showing: ['There is no page at this address'] })
@@ -163,7 +163,7 @@ export const CATALOGUE: readonly Scenario[] = [
     asserts: 'presentation',
     gate: true,
     async run(surface) {
-      const session = await open(surface.origin, {
+      const session = await renderOnlyWithStubbedNetwork(surface.origin, {
         storage: SIGNED_IN,
         stubs: [
           [`GET /auth/me`, { json: ME }],
@@ -196,7 +196,7 @@ export const CATALOGUE: readonly Scenario[] = [
     // Asserted here in a real browser because the order is between a history API call and a fetch,
     // and a unit test with a stubbed `history` proves the stub was called in order.
     async run(surface) {
-      const session = await open(surface.origin, {
+      const session = await renderOnlyWithStubbedNetwork(surface.origin, {
         path: '/#cf_code=handoff-code-123',
         stubs: [
           ['POST /auth/handoff/redeem', { json: { accessToken: 'a', refreshToken: 'r' } }],
@@ -232,7 +232,7 @@ export const CATALOGUE: readonly Scenario[] = [
     // token on the request itself (src/lib/auth.tsx). What is asserted is that the user is sent
     // somewhere they can act, with their destination preserved.
     async run(surface) {
-      const session = await open(surface.origin, {
+      const session = await renderOnlyWithStubbedNetwork(surface.origin, {
         path: '/settings',
         stubs: [['/account/login', SIGNIN_STANDIN]],
       })
@@ -259,7 +259,7 @@ export const CATALOGUE: readonly Scenario[] = [
     asserts: 'presentation',
     gate: true,
     async run(surface) {
-      const session = await open(surface.origin, {
+      const session = await renderOnlyWithStubbedNetwork(surface.origin, {
         storage: SIGNED_IN,
         stubs: [
           ['GET /auth/me', { json: ME }],
@@ -293,7 +293,7 @@ export const CATALOGUE: readonly Scenario[] = [
     tier: 1,
     asserts: 'presentation',
     async run(surface) {
-      const session = await open(surface.origin, {
+      const session = await renderOnlyWithStubbedNetwork(surface.origin, {
         storage: SIGNED_IN,
         stubs: [
           ['GET /auth/me', { json: ME }],
@@ -328,7 +328,7 @@ export const CATALOGUE: readonly Scenario[] = [
       ] as const
       const seen = new Set<string>()
       for (const path of ['/', '/settings']) {
-        const session = await open(surface.origin, { path, storage: SIGNED_IN, stubs })
+        const session = await renderOnlyWithStubbedNetwork(surface.origin, { path, storage: SIGNED_IN, stubs })
         try {
           await assertMounted(session)
           for (const id of await assertAxeClean(session.page, path, UI_CONTRAST)) seen.add(id)
@@ -341,7 +341,7 @@ export const CATALOGUE: readonly Scenario[] = [
       // still held to the whole rule set. It is passed no list at all rather than `UI_CONTRAST`,
       // which keeps the two spellings distinguishable: the day this template does carry an
       // exclusion again, this call is the one that proves it is scoped and not global.
-      const missing = await open(surface.origin, { path: '/nope', stubs })
+      const missing = await renderOnlyWithStubbedNetwork(surface.origin, { path: '/nope', stubs })
       try {
         await assertMounted(missing)
         await assertAxeClean(missing.page, '/nope')
@@ -357,7 +357,7 @@ export const CATALOGUE: readonly Scenario[] = [
     asserts: 'presentation',
     gate: true,
     async run(surface) {
-      const session = await open(surface.origin, {
+      const session = await renderOnlyWithStubbedNetwork(surface.origin, {
         storage: SIGNED_IN,
         stubs: [
           ['GET /auth/me', { json: ME }],
@@ -385,7 +385,7 @@ export const CATALOGUE: readonly Scenario[] = [
     asserts: 'presentation',
     async run(surface) {
       for (const path of ['/', '/settings']) {
-        const session = await open(surface.origin, {
+        const session = await renderOnlyWithStubbedNetwork(surface.origin, {
           path,
           storage: SIGNED_IN,
           stubs: [

@@ -163,10 +163,21 @@ jsdom; it is the actual engine.
 `docs/ecosystem/22-browser-journeys.md` — everything that needs the bundle, a browser and a set of
 stubbed responses, and nothing else. Tier 3, which needs the estate up, lives in `micro-beacon`.
 
+**These scenarios cannot tell you the app works.** The browser is real; the network is not.
+`test/journeys/browser.ts` installs `page.route('**/*', …)` and answers every request from a
+fixture, so an unreachable API, a wrong host, an unrouted path, a CORS refusal or a stylesheet that
+404s are all answered with a cheerful 200 and are structurally invisible here. This is not a
+hypothetical: the entry point used to be called `open()`, and under that name the estate shipped
+three completely unstyled surfaces and four more whose reads 404'd or 401'd in a browser, with CI
+green and 314 browser scenarios green. **The tier that can see those is `micro-beacon`'s smoke
+tier** — `beacon smoke` / `pnpm smoke` — which drives real Chromium through the real gateway with
+nothing intercepted. `test/harness-honesty.test.ts` fails if the honest name, the warning or
+beacon's name is ever removed from the harness.
+
 | File | What it is |
 | --- | --- |
 | `test/journeys/catalogue.ts` | **The scenarios, as data.** This is the one you edit. |
-| `test/journeys/browser.ts` | Finds a Chromium, opens a page, stubs the API, collects console errors and failed requests. |
+| `test/journeys/browser.ts` | Finds a Chromium and renders the bundle against a **fake network**. Its entry point is `renderOnlyWithStubbedNetwork()`, named so nobody mistakes it for opening the product. |
 | `test/journeys/surface.ts` | `vite build`, then serves `dist/` **through this repository's own `nginx.conf`**, parsed rather than restated. |
 | `test/journeys/scenario.ts` | The scenario type, and the meta-test that keeps the layer boundary. |
 | `test/journeys/axe.ts` | axe-core in the page, plus tab order and document order. |
