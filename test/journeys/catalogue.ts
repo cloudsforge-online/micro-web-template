@@ -380,14 +380,38 @@ export const CATALOGUE: readonly Scenario[] = [
   /* ---- specified, and not writable today ------------------------------ */
   {
     id: 'BJ-ACC-01',
-    title: 'register from the sign-in surface and arrive back with a session',
+    title: 'register from the sign-in surface and arrive back on this surface with a session',
     tier: 2,
     asserts: 'presentation',
     gate: true,
     blocked:
-      'Nothing in the estate serves a sign-in page (doc 22 §8.1). Every SPA’s signInRedirect() ' +
-      'sends the browser to ${accountUrl()}/login, and no repository in the working tree serves ' +
-      '/login: micro-identity renders no HTML at all. Until a sign-in surface exists, no browser ' +
-      'scenario downstream of a session can be written — which is most of doc 22’s ★ set.',
+      'It is a TWO-SURFACE journey, and tier 3 is where those live (doc 22 §2.2). The blocker is ' +
+      'no longer the one this scenario shipped with: it read "nothing in the estate serves a ' +
+      'sign-in page", which was true when it was written and is now false — micro-hub-web serves ' +
+      '/account/login, /account/register and /account/logout, and the estate compose brings the ' +
+      'frontends up. NOTHING WENT RED WHEN THAT CHANGED, which is why `blockedWhile` below now ' +
+      'exists: a gap that has quietly closed reads exactly like one that is still open. What is ' +
+      'left is scope. Signing in happens on hub-web and the session is used here, so no single ' +
+      'repository’s PR can establish it; it belongs to micro-beacon.',
+    // Inverted deliberately: this is blocked while the sign-in route IS present, because its
+    // presence is what turned the blocker from "the page does not exist" into "it is somebody
+    // else's page". If hub-web ever stops serving it, this goes red and the reason has to be
+    // rewritten again rather than left to age.
+    blockedWhile: { present: 'hub-web/src/app.tsx#account/login' },
+  },
+  {
+    id: 'BJ-ACC-03',
+    title: 'a deep link into a protected route survives the sign-in round trip',
+    tier: 2,
+    asserts: 'navigation',
+    gate: true,
+    expectStatus: 200,
+    ownedBy: 'web-template/test/journeys/catalogue.ts#BJ-ACC-07',
+    blocked:
+      'The half this repository owns IS asserted — BJ-ACC-07 checks that the address the visitor ' +
+      'asked for is carried to /account/login in the `return` parameter. The other half is the ' +
+      'portal reading it back and returning here, which happens on micro-hub-web. Two surfaces, ' +
+      'so tier 3.',
+    blockedWhile: { present: 'hub-web/src/app.tsx#account/login' },
   },
 ]
