@@ -67,10 +67,17 @@ curl -si localhost:9310/nope  | head -1   # HTTP/1.1 404 Not Found  ← the poin
    payload inside it. Everything else stays.
 4. **Add your routes**, in three places that must agree: the route table in `src/app.tsx`, `NAV`
    in `src/components/shell.tsx`, and the enumerated locations in `nginx.conf`. The third is what
-   keeps an unknown path answering 404, and CI greps for the fallback that would break it.
-5. **Keep the four states.** A screen that renders three of them is a screen that reports a
+   keeps an unknown path answering 404, and CI greps for the fallback that would break it. Write
+   each nginx route as `^/(name)/?$` and **not** `^/(name)(/|$)` unless the router genuinely has
+   children there — the second form serves the shell with a 200 for every address beneath the
+   route, so the not-found page is delivered as a success. That is the same defect `site` found in
+   `/products/pay`, and it was in this template until a browser scenario probed for it.
+5. **Rename `BJ-TEMPLATE-404`** in `test/journeys/catalogue.ts` to your surface's key, and add your
+   surface's group from `docs/ecosystem/22-browser-journeys.md` beneath the scenarios already
+   there. They are the floor every surface owes, not examples to delete.
+6. **Keep the four states.** A screen that renders three of them is a screen that reports a
    timeout as "no data" or a missing scope as "try again".
-6. **Do not add a `.env` file.** There is a test that fails if one appears, and another that
+7. **Do not add a `.env` file.** There is a test that fails if one appears, and another that
    fails if any source file reads a build-time variable.
 
 ---
@@ -127,7 +134,8 @@ tree, which also means an edit in the design system is visible here without a re
 
 ## Tests
 
-`node:test`, no DOM. 65 tests across five files.
+`node:test`, and two layers rather than one: a pure-function suite with no DOM, and a browser
+suite that drives the built bundle in a real Chromium. 81 tests.
 
 | File | What it pins |
 | --- | --- |
@@ -139,12 +147,43 @@ tree, which also means an edit in the design system is visible here without a re
 
 **There is deliberately no jsdom.** It is a second browser implementation to keep current, it
 disagrees with real browsers in exactly the places that matter, and a test that renders a
-component in it proves the component renders in jsdom.
+component in it proves the component renders in jsdom. What the browser suite below adds is not
+jsdom; it is the actual engine.
 
-### What is untested here because it needs a browser
+### The browser journeys
 
-Each of these is exercised by a Beacon journey against the deployed app, which is a real browser
-rather than an approximation of one:
+`test/browser-journeys.test.ts` and `test/journeys/`. Tiers 1 and 2 of
+`docs/ecosystem/22-browser-journeys.md` — everything that needs the bundle, a browser and a set of
+stubbed responses, and nothing else. Tier 3, which needs the estate up, lives in `micro-beacon`.
+
+| File | What it is |
+| --- | --- |
+| `test/journeys/catalogue.ts` | **The scenarios, as data.** This is the one you edit. |
+| `test/journeys/browser.ts` | Finds a Chromium, opens a page, stubs the API, collects console errors and failed requests. |
+| `test/journeys/surface.ts` | `vite build`, then serves `dist/` **through this repository's own `nginx.conf`**, parsed rather than restated. |
+| `test/journeys/scenario.ts` | The scenario type, and the meta-test that keeps the layer boundary. |
+| `test/journeys/axe.ts` | axe-core in the page, plus tab order and document order. |
+
+**It needs a browser and it will not skip without one.** `playwright-core` drives a Chromium the
+machine already has — `/usr/bin/google-chrome` on every `ubuntu-latest` runner, Chrome.app on a
+Mac, or anything you point `CF_CHROME` at. A browser suite that quietly skips itself is green
+everywhere and proves nothing, which is the defect class this estate keeps producing, so a missing
+browser is a failure and names every path it looked in.
+
+**A frontend test must never assert a business rule.** A game client once withheld four SKUs from
+its UI while the payment routes stayed live and chargeable; a client-side test of the hidden
+catalogue would have passed against that defect. So every scenario declares `asserts:
+presentation | client-request | navigation`, and anything turning on a server-side rule must name
+the server test that owns it in `ownedBy`. `checkCatalogue` fails the suite rather than reporting
+green when one does not. Read the header of `scenario.ts` before adding a scenario.
+
+**When you copy this repository:** rename `BJ-TEMPLATE-404` to your surface's key, keep every
+other scenario — they are the floor, not examples — and add your surface's own group from doc 22
+beneath them.
+
+### What is still untested here because it needs the estate
+
+Each of these is a tier-3 scenario and belongs to `micro-beacon`:
 
 - **Rendering.** Every component in `src/components` and `src/pages`. The pure layer they call is
   tested; the markup they produce is not.
@@ -158,8 +197,12 @@ rather than an approximation of one:
   private-window and blocked-iframe cases, where access itself throws, are not reproducible here.
 - **Everything visual.** Token application, the sub-nav docking under `var(--cf-bar-h)`, chart
   geometry as drawn, contrast, and focus order.
-- **nginx.** The 404-preserving fallback is verified by `curl` against the built image, and by the
-  grep in CI. It is not covered by `pnpm test`.
+- **Anything crossing two surfaces.** A session established on one surface and used on another,
+  the switcher's URLs resolving, one portfolio total agreeing with another. No single repository's
+  PR can establish a property of a *set* of versions.
+- **A sign-in page.** Nothing in the estate serves one (doc 22 §8.1), so every scenario downstream
+  of a real session is specified and blocked rather than written. `BJ-ACC-01` in the catalogue is
+  the record of that.
 
 ---
 

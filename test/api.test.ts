@@ -222,7 +222,19 @@ describe('auth callback', () => {
     // The ORDER is the assertion. Reverse the two side effects in @cloudsforge/ui and this fails.
     assert.equal(browser.trace[0], 'replaceState:/reports?tab=1#view=grid')
     assert.ok(browser.trace[1]?.startsWith('fetch:'))
-    assert.ok(browser.trace[1]?.includes('/auth/exchange'))
+    // The HOST, not the path. This line read `.includes('/auth/exchange')` and was the exact
+    // shape micro-ui's own header warns about: it read the route out of the implementation and
+    // compared it to itself, so it passed for any value — which is how nobody noticed that
+    // `/auth/exchange` is a route micro-identity has never served. When micro-ui was corrected to
+    // POST to `/auth/handoff/redeem` (`identity/src/server.ts` mints at `/auth/handoff` and
+    // spends at `/auth/handoff/redeem`), this assertion went red in thirteen frontends at once
+    // for being wrong rather than for anything here being wrong.
+    //
+    // WHICH ROUTE IS NOT THIS SUITE'S TO ASSERT. It belongs to the module that calls it, and is
+    // owned by `ui/packages/ui/src/auth.test.ts`, which drives the exchange against a stand-in
+    // serving ONLY the routes identity serves and 404ing the rest. What this bundle is
+    // responsible for is that the redemption goes to nimbus and goes AFTER the strip.
+    assert.ok(browser.trace[1]?.includes('localhost:4001') || browser.trace[1]?.includes('nimbus.'))
 
     // The rest of the fragment survives: an app may keep its own route there.
     assert.deepEqual(browser.replaced, ['/reports?tab=1#view=grid'])
