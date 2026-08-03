@@ -351,7 +351,7 @@ export const CATALOGUE: readonly Scenario[] = [
   },
   {
     id: 'BJ-A11Y-12',
-    title: 'one main landmark, and a heading order with no level skipped',
+    title: 'a reachable skip link, one main landmark, and a heading order with no level skipped',
     tier: 2,
     asserts: 'presentation',
     async run(surface) {
@@ -373,6 +373,42 @@ export const CATALOGUE: readonly Scenario[] = [
             ),
           }))
           assert.equal(structure.mains, 1, `${path} has ${structure.mains} main landmarks`)
+
+          // The skip link, asserted the way a keyboard user meets it: press Tab once from the top
+          // of the document and see what has focus. Reading `querySelector('a')` instead would
+          // prove document order, which is not the same thing — a `tabindex` or an `inert`
+          // ancestor changes one without changing the other.
+          const before = await session.page.evaluate(
+            () => document.body.querySelector('a[href]')?.getBoundingClientRect().top ?? null,
+          )
+          await session.page.keyboard.press('Tab')
+          const focused = await session.page.evaluate(() => {
+            const el = document.activeElement as HTMLAnchorElement | null
+            if (!el || el === document.body) return null
+            return {
+              href: el.getAttribute('href'),
+              target: Boolean(document.querySelector(el.getAttribute('href') ?? '#none')),
+            }
+          })
+          assert.ok(focused, `${path}: pressing Tab from the top of the document focused nothing`)
+          assert.equal(focused.href, '#main', `${path}: the first thing Tab reaches is not the skip link`)
+          assert.ok(focused.target, `${path}: the skip link points at #main, which is not on the page`)
+
+          // …and it becomes VISIBLE when focused. This is the half that can be got wrong
+          // invisibly: a link that stays off-screen is worse than none, because a keyboard reader
+          // activates it and cannot tell whether anything happened. Waited for rather than read
+          // once, because the position is a CSS transition and the first frame is still off-screen.
+          const moved = await session.page
+            .waitForFunction(
+              (top: number) =>
+                (document.activeElement?.getBoundingClientRect().top ?? top) > top + 1,
+              before ?? 0,
+              { timeout: 3_000 },
+            )
+            .then(() => true)
+            .catch(() => false)
+          assert.ok(moved, `${path}: the skip link never moved into view while focused (top ${before})`)
+
           assert.ok(structure.levels.length > 0, `${path} has no headings at all`)
           assert.equal(structure.levels[0], 1, `${path} does not open with an h1`)
           let previous = 0
@@ -388,17 +424,6 @@ export const CATALOGUE: readonly Scenario[] = [
   },
 
   /* ---- specified, and not writable today ------------------------------ */
-  {
-    id: 'BJ-A11Y-12-SKIP',
-    title: 'a skip link takes a keyboard user past the bar and the sub-navigation to the page',
-    tier: 2,
-    asserts: 'presentation',
-    blocked:
-      'No surface in this estate renders a skip link. The right home for one is CloudsForgeBar in ' +
-      '@cloudsforge/ui, which every surface renders and which is the run of links a keyboard user ' +
-      'has to traverse on every page; putting it in each shell would be fifteen copies of one ' +
-      'control. micro-ui is held by another agent, so this is raised there rather than forked here.',
-  },
   {
     id: 'BJ-ACC-01',
     title: 'register from the sign-in surface and arrive back with a session',

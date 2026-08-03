@@ -243,3 +243,29 @@ body {
     animation: none;
   }
 }
+
+/* -----------------------------------------------------------------------
+ * The skip link. Hidden until focused, and then unmistakably visible.
+ *
+ * `top` moves rather than `display` toggling, because a link that is
+ * `display: none` is not focusable at all and a skip link that cannot be
+ * reached by Tab is decoration. The focused position clears the shared bar
+ * by its own height token, so it does not land underneath it.
+ * ------------------------------------------------------------------- */
+.wt-skip {
+  position: absolute;
+  left: var(--cf-space-sm);
+  top: -4rem;
+  z-index: 100;
+  padding: var(--cf-space-sm) var(--cf-space-xl);
+  border-radius: var(--cf-radius);
+  background: var(--cf-accent);
+  color: var(--cf-accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+  transition: top var(--cf-speed) var(--cf-ease);
+}
+
+.wt-skip:focus {
+  top: calc(var(--cf-bar-h) + var(--cf-space-sm));
+}
