@@ -31,7 +31,7 @@
  */
 import assert from 'node:assert/strict'
 import { assertMounted, open } from './browser.ts'
-import { assertAxeClean, type KnownViolation } from './axe.ts'
+import { assertAxeClean, assertKnownStillBroken, assertLandmarks, assertSkipLink, type KnownViolation } from './axe.ts'
 import type { Scenario } from './scenario.ts'
 
 /**
@@ -301,15 +301,17 @@ export const CATALOGUE: readonly Scenario[] = [
         ['GET /v1/overview', { status: 404, json: {} }],
         ['/account/login', SIGNIN_STANDIN],
       ] as const
+      const seen = new Set<string>()
       for (const path of ['/', '/settings']) {
         const session = await open(surface.origin, { path, storage: SIGNED_IN, stubs })
         try {
           await assertMounted(session)
-          await assertAxeClean(session.page, path, UI_CONTRAST)
+          for (const id of await assertAxeClean(session.page, path, UI_CONTRAST)) seen.add(id)
         } finally {
           await session.close()
         }
       }
+      assertKnownStillBroken(seen, UI_CONTRAST)
       // The not-found page carries no muted caption, so it is held to the whole rule set with no
       // exclusion at all — which is also what proves the exclusion above is scoped and not global.
       const missing = await open(surface.origin, { path: '/nope', stubs })
@@ -366,56 +368,8 @@ export const CATALOGUE: readonly Scenario[] = [
         })
         try {
           await assertMounted(session)
-          const structure = await session.page.evaluate(() => ({
-            mains: document.querySelectorAll('main').length,
-            levels: [...document.querySelectorAll('h1,h2,h3,h4,h5,h6')].map((h) =>
-              Number(h.tagName.slice(1)),
-            ),
-          }))
-          assert.equal(structure.mains, 1, `${path} has ${structure.mains} main landmarks`)
-
-          // The skip link, asserted the way a keyboard user meets it: press Tab once from the top
-          // of the document and see what has focus. Reading `querySelector('a')` instead would
-          // prove document order, which is not the same thing — a `tabindex` or an `inert`
-          // ancestor changes one without changing the other.
-          const before = await session.page.evaluate(
-            () => document.body.querySelector('a[href]')?.getBoundingClientRect().top ?? null,
-          )
-          await session.page.keyboard.press('Tab')
-          const focused = await session.page.evaluate(() => {
-            const el = document.activeElement as HTMLAnchorElement | null
-            if (!el || el === document.body) return null
-            return {
-              href: el.getAttribute('href'),
-              target: Boolean(document.querySelector(el.getAttribute('href') ?? '#none')),
-            }
-          })
-          assert.ok(focused, `${path}: pressing Tab from the top of the document focused nothing`)
-          assert.equal(focused.href, '#main', `${path}: the first thing Tab reaches is not the skip link`)
-          assert.ok(focused.target, `${path}: the skip link points at #main, which is not on the page`)
-
-          // …and it becomes VISIBLE when focused. This is the half that can be got wrong
-          // invisibly: a link that stays off-screen is worse than none, because a keyboard reader
-          // activates it and cannot tell whether anything happened. Waited for rather than read
-          // once, because the position is a CSS transition and the first frame is still off-screen.
-          const moved = await session.page
-            .waitForFunction(
-              (top: number) =>
-                (document.activeElement?.getBoundingClientRect().top ?? top) > top + 1,
-              before ?? 0,
-              { timeout: 3_000 },
-            )
-            .then(() => true)
-            .catch(() => false)
-          assert.ok(moved, `${path}: the skip link never moved into view while focused (top ${before})`)
-
-          assert.ok(structure.levels.length > 0, `${path} has no headings at all`)
-          assert.equal(structure.levels[0], 1, `${path} does not open with an h1`)
-          let previous = 0
-          for (const level of structure.levels) {
-            assert.ok(level <= previous + 1, `${path} jumps from h${previous} to h${level}`)
-            previous = level
-          }
+          await assertLandmarks(session.page, path)
+          await assertSkipLink(session.page, path)
         } finally {
           await session.close()
         }

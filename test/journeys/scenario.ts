@@ -52,6 +52,17 @@ export interface Scenario {
   readonly serverRule?: string
   /** Path of the server-side test that owns the rule, relative to the estate root. */
   readonly ownedBy?: string
+  /**
+   * Why this scenario turns on no server rule at all, when its title reads as though it might.
+   *
+   * The refusal check below is deliberately blunt — it matches a word, in a title. That makes it
+   * fire on a scenario about a page whose SUBJECT is refusals ("the company's published
+   * refusals") as readily as on one asserting an HTTP 403. Silently narrowing the pattern until
+   * it stops complaining is how a guard loses its teeth; a bypass nobody has to justify is how it
+   * loses them faster. So the third answer is a sentence, written by the author, saying what the
+   * scenario actually asserts. It costs one line and it is readable in review.
+   */
+  readonly noServerRule?: string
   /** For `navigation`: the HTTP status the address must answer under. */
   readonly expectStatus?: number
   /** ⛔ — why this scenario cannot be written as code today. A specification, not coverage. */
@@ -109,13 +120,20 @@ export function checkCatalogue(scenarios: readonly Scenario[]): Finding[] {
     ) {
       findings.push({ id: s.id, problem: `expects HTTP ${s.expectStatus} and names no ownedBy` })
     }
-    if (REFUSAL.test(s.title) && !s.ownedBy && !s.serverRule) {
+    if (REFUSAL.test(s.title) && !s.ownedBy && !s.serverRule && !s.noServerRule) {
       findings.push({
         id: s.id,
         problem:
-          'the title describes a refusal. Either name the server test that owns it in ownedBy, or ' +
-          'rewrite the title to describe the sentence the user is shown',
+          'the title describes a refusal. Name the server test that owns it in ownedBy, rewrite ' +
+          'the title to describe the sentence the user is shown, or say in noServerRule why no ' +
+          'server rule is involved',
       })
+    }
+    if (s.noServerRule && s.noServerRule.trim().length < 30) {
+      findings.push({ id: s.id, problem: 'noServerRule is a shrug rather than a reason' })
+    }
+    if (s.noServerRule && (s.ownedBy || s.serverRule)) {
+      findings.push({ id: s.id, problem: 'claims both that a server rule owns it and that none does' })
     }
     // `<repo>/<path>` with an optional `#<anchor>` — a string `grep` can resolve, never a
     // description. The anchor is the line the rule is stated on, so a moved test is caught too.
