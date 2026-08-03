@@ -35,26 +35,47 @@ import { assertAxeClean, assertKnownStillBroken, assertLandmarks, assertSkipLink
 import type { Scenario } from './scenario.ts'
 
 /**
- * The one accessibility defect in this estate that no frontend can fix.
+ * Nothing — and the list stays here, empty, because its emptiness was EARNED and the next surface
+ * cut from this template has to know how to earn it too.
  *
- * `--cf-fg-mute` is `#63757a`, and on the panel and tile surfaces (`#151d21`) it measures
- * **3.54:1** — under the 4.5:1 WCAG AA threshold for normal text. It is a design-system token
- * (`ui/packages/ui/src/ui.css`, `.cf-tile__label`, `.cf-tile__stamp`, and every `--cf-fg-mute`
- * caption), so it fails identically on every surface in the estate at once and changing it here
- * would be a local fork of a shared token.
+ * ── What used to be here ──────────────────────────────────────────────────────────────────────
  *
- * Recorded rather than switched off: `assertAxeClean` asserts the rule is STILL failing as well as
- * asserting nothing else does, so the day micro-ui raises the token this suite goes red and the
- * exclusion has to be deleted. See the header of that function.
+ * One entry: `color-contrast`, owned by micro-ui. `--cf-fg-mute` resolved to `#63757a` on the
+ * `cool` substrate this template sets in index.html, and against the panel `#151d21` that is
+ * **3.54:1** — under the 4.5:1 WCAG 2.2 AA floor for normal text. It is the token behind every
+ * secondary label, timestamp, table caption and helper string, so no frontend could fix it
+ * without forking a shared token.
+ *
+ * `micro-ui` fixed it (commit `2f990be`): the cool ramp's `--cf-khaki` `#63757a` → `#7d9399`
+ * (5.29:1), and `--cf-bone-dim` `#96a5a6` → `#abbcbd` (8.67:1) alongside it, so the muted step did
+ * not rise into the dimmed one. The exclusion is therefore deleted, and it was deleted for the
+ * right reason: this suite went RED first, with `assertKnownStillBroken` naming the entry to
+ * remove, and green after. THE MECHANISM WORKED. That is the only reason the empty list below is
+ * worth more than no list at all.
+ *
+ * ── Why the two lines are kept rather than deleted with the entry ─────────────────────────────
+ *
+ * An empty list is not a no-op. `assertAxeClean` then tolerates NOTHING, which is strictly the
+ * stronger assertion, and the pair of calls stays wired so that adding an exclusion is an edit to
+ * one array rather than a re-plumbing that a copier under a deadline will skip. `micro-site` and
+ * `micro-network-site` carry the same empty list for the same reason.
+ *
+ * ── If you are copying this template and think you need an entry ──────────────────────────────
+ *
+ * An exclusion is a defect somebody decided not to fix today, so it costs a `rule`, and an `owner`
+ * naming the repository that can fix it and what is actually wrong. It cannot outlive the defect:
+ * `assertKnownStillBroken` asserts every entry is STILL failing somewhere in the sweep, so the day
+ * the owner fixes it this suite goes red and tells you to delete the line. Do not add an entry you
+ * have not watched fail — an unearned exclusion silently suppresses the same rule when it comes
+ * back somewhere else, which is a test that can only pass wearing a different hat.
+ *
+ * And know what it still cannot see: AN ENTRY IS KEYED BY `rule`, and `owner` is prose that
+ * nothing reads. One entry excuses every violation of that rule id on the surface. Read the second
+ * half of the `KnownViolation` doc in axe.ts before you add one — a sibling surface carried a
+ * 4.44:1 link behind a `color-contrast` entry written for something else entirely, and stayed
+ * green through the fix that should have exposed it.
  */
-export const UI_CONTRAST: readonly KnownViolation[] = [
-  {
-    rule: 'color-contrast',
-    owner:
-      'micro-ui — --cf-fg-mute (#63757a) on the panel/tile surface (#151d21) is 3.54:1, against a ' +
-      '4.5:1 requirement for normal text',
-  },
-]
+const UI_CONTRAST: readonly KnownViolation[] = []
 
 /**
  * The sign-in surface every `signInRedirect()` in the estate points at. Nothing serves it (§8.1).
@@ -312,8 +333,10 @@ export const CATALOGUE: readonly Scenario[] = [
         }
       }
       assertKnownStillBroken(seen, UI_CONTRAST)
-      // The not-found page carries no muted caption, so it is held to the whole rule set with no
-      // exclusion at all — which is also what proves the exclusion above is scoped and not global.
+      // The not-found page is swept too, so a route that renders none of the app's own chrome is
+      // still held to the whole rule set. It is passed no list at all rather than `UI_CONTRAST`,
+      // which keeps the two spellings distinguishable: the day this template does carry an
+      // exclusion again, this call is the one that proves it is scoped and not global.
       const missing = await open(surface.origin, { path: '/nope', stubs })
       try {
         await assertMounted(missing)

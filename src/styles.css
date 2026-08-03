@@ -131,6 +131,27 @@ body {
   margin: 0.5rem 0 0;
 }
 
+/*
+ * IF YOU CHANGE data-cf-product IN index.html, RE-CHECK THIS LINE.
+ *
+ * `--cf-accent` is validated at >= 3:1 on `--cf-bg-raised` — the WCAG floor for large text and
+ * for non-text UI marks. This rule paints normal-sized body text, where the floor is 4.5:1, and
+ * the registry's accents are not all on the right side of it. On the `cool` substrate this
+ * template sets: trade `#2a9e93` is 5.21:1 on the panel and worlds `#6d9a49` is 5.18:1, but
+ * foresight `#1e89c7` is **4.44:1** — and micro-foresight-admin-web, cut from this template,
+ * shipped exactly this rule and failed axe on it. It had gone unseen because the surface carried
+ * a `color-contrast` exclusion for an unrelated micro-ui token, and an exclusion is keyed by rule,
+ * so it excused this too.
+ *
+ * The colour is left as `--cf-accent` because `trade` clears 4.5:1 and inventing a second link
+ * token to guard a value that passes would be a fork. What guards it instead is BJ-A11Y-01 in
+ * test/journeys/catalogue.ts, which sweeps axe over every route with NO exclusions at all: pick an
+ * accent that fails here and the suite goes red on `/settings` before the surface ever ships. That
+ * was verified by pasting the old `#63757a` into this file and watching it fail.
+ *
+ * If your product's accent is one of the marginal ones, `--cf-accent-hover` is the same hue's
+ * lighter step and is the fix micro-foresight-admin-web took — no new hex, no fork.
+ */
 .wt-link {
   color: var(--cf-accent);
 }

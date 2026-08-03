@@ -82,6 +82,22 @@ export function describeViolations(violations: readonly Violation[]): string {
  * suite goes red and the entry has to be deleted. An exclusion that could quietly stay for ever
  * would be the same defect as a test that can only pass, which is the class this whole suite was
  * written to stop the estate producing.
+ *
+ * ── AND THE ONE THING IT STILL CANNOT SEE, WHICH HAS ALREADY BITTEN ───────────────────────────
+ *
+ * AN ENTRY IS KEYED BY `rule`. `owner` is prose and nothing reads it. So an entry added for one
+ * defect silently excuses EVERY violation of that rule id on the surface, and a second, unrelated
+ * one can hide behind it indefinitely — including after the first is fixed, because the rule is
+ * still seen and the entry therefore still looks live.
+ *
+ * That is not hypothetical. `micro-foresight-admin-web` recorded `color-contrast` against a
+ * micro-ui token; when micro-ui fixed the token that suite did NOT go red, because a link of its
+ * own was failing the same rule at 4.44:1 and had been since it shipped. Deleting the entry is
+ * what found it.
+ *
+ * The rule to work by: an exclusion is only as narrow as its rule id. Before adding one, check
+ * what else on the surface can produce that id, and never treat a green suite carrying an
+ * exclusion as evidence that the rest of the rule is clean.
  */
 export interface KnownViolation {
   readonly rule: string
