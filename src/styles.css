@@ -132,28 +132,37 @@ body {
 }
 
 /*
- * IF YOU CHANGE data-cf-product IN index.html, RE-CHECK THIS LINE.
+ * `--cf-accent-text`, NOT `--cf-accent`, AND THAT IS NOW TRUE OF EVERY `color:` IN THE ESTATE.
  *
- * `--cf-accent` is validated at >= 3:1 on `--cf-bg-raised` — the WCAG floor for large text and
- * for non-text UI marks. This rule paints normal-sized body text, where the floor is 4.5:1, and
- * the registry's accents are not all on the right side of it. On the `cool` substrate this
- * template sets: trade `#2a9e93` is 5.21:1 on the panel and worlds `#6d9a49` is 5.18:1, but
- * foresight `#1e89c7` is **4.44:1** — and micro-foresight-admin-web, cut from this template,
- * shipped exactly this rule and failed axe on it. It had gone unseen because the surface carried
- * a `color-contrast` exclusion for an unrelated micro-ui token, and an exclusion is keyed by rule,
- * so it excused this too.
+ * This rule used to read `color: var(--cf-accent)` with a comment saying to re-check it whenever
+ * `data-cf-product` changed. `--cf-accent` is validated at >= 3:1 on `--cf-bg-raised` — the floor
+ * for a non-text mark, which is all it is in micro-ui: border, outline, box-shadow, fill. This
+ * rule paints 0.9rem body text, where the floor is 4.5:1, and the registry's accents were not all
+ * on the right side of it. micro-foresight-admin-web, cut from this template, shipped exactly this
+ * rule and painted its market titles in foresight's `#1e89c7` — 4.44:1 on the cool panel, failing
+ * from the day it shipped, and unseen because that surface carried a `color-contrast` exclusion
+ * for an unrelated micro-ui token and an exclusion was keyed by rule alone.
  *
- * The colour is left as `--cf-accent` because `trade` clears 4.5:1 and inventing a second link
- * token to guard a value that passes would be a fork. What guards it instead is BJ-A11Y-01 in
- * test/journeys/catalogue.ts, which sweeps axe over every route with NO exclusions at all: pick an
- * accent that fails here and the suite goes red on `/settings` before the surface ever ships. That
- * was verified by pasting the old `#63757a` into this file and watching it fail.
+ * The old comment also carried the reasoning that made it durable, and it is worth keeping visible
+ * because it is the part that was wrong: "the colour is left as `--cf-accent` because `trade`
+ * clears 4.5:1 and inventing a second link token to guard a value that passes would be a fork."
+ * Trade clearing said nothing about foresight. A colour whose correctness depends on which product
+ * mounts the template is not a colour this file can hold, and the reviewer who wrote that had the
+ * failing number in front of them.
  *
- * If your product's accent is one of the marginal ones, `--cf-accent-hover` is the same hue's
- * lighter step and is the fix micro-foresight-admin-web took — no new hex, no fork.
+ * `--cf-accent-text` is the token for this job: the same hue as the product's accent, scaled in
+ * linear light until it clears 4.5:1 on the tightest ground micro-ui composes text on. Every
+ * product has one; three products whose accent already clears simply alias it. So this rule is
+ * correct for every value of `data-cf-product`, and there is nothing to re-check.
+ *
+ * Two things hold it there. micro-ui's `src/contrast.test.ts` fails if any `color:` names a 3:1
+ * token, by NAME rather than by measured ratio — a ratio check passes for whichever products
+ * happen to clear, and that per-product pass is what hid this. And BJ-A11Y-01 in
+ * test/journeys/catalogue.ts sweeps axe over every route with no exclusions at all, so a colour
+ * that fails in the browser reddens `/settings` before the surface ships.
  */
 .wt-link {
-  color: var(--cf-accent);
+  color: var(--cf-accent-text);
 }
 
 .wt-facts {

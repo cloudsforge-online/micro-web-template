@@ -62,18 +62,22 @@ import type { Scenario } from './scenario.ts'
  *
  * ── If you are copying this template and think you need an entry ──────────────────────────────
  *
- * An exclusion is a defect somebody decided not to fix today, so it costs a `rule`, and an `owner`
- * naming the repository that can fix it and what is actually wrong. It cannot outlive the defect:
- * `assertKnownStillBroken` asserts every entry is STILL failing somewhere in the sweep, so the day
- * the owner fixes it this suite goes red and tells you to delete the line. Do not add an entry you
- * have not watched fail — an unearned exclusion silently suppresses the same rule when it comes
- * back somewhere else, which is a test that can only pass wearing a different hat.
+ * An exclusion is a defect somebody decided not to fix today, so it costs three things: a `rule`,
+ * a `selector` naming the element it is actually about, and an `owner` naming the repository that
+ * can fix it and what is wrong. It cannot outlive the defect: `assertKnownStillBroken` asserts
+ * every entry is STILL failing ON THE ELEMENT IT NAMES somewhere in the sweep, so the day the owner
+ * fixes it this suite goes red and tells you to delete the line. Do not add an entry you have not
+ * watched fail — an unearned exclusion silently suppresses the same rule when it comes back
+ * somewhere else, which is a test that can only pass wearing a different hat.
  *
- * And know what it still cannot see: AN ENTRY IS KEYED BY `rule`, and `owner` is prose that
- * nothing reads. One entry excuses every violation of that rule id on the surface. Read the second
- * half of the `KnownViolation` doc in axe.ts before you add one — a sibling surface carried a
- * 4.44:1 link behind a `color-contrast` entry written for something else entirely, and stayed
- * green through the fix that should have exposed it.
+ * `selector` is why the entry above is three fields and not two. It used to be keyed by `rule`
+ * alone, so ONE entry excused every violation of that rule id on the whole surface. A sibling
+ * surface carried a 4.44:1 link behind a `color-contrast` entry written for something else
+ * entirely and stayed green through the fix that should have exposed it — `assertKnownStillBroken`
+ * reported nothing, correctly, because the rule WAS still failing, just on a different element for
+ * a different reason. Matching is now per node, so that second failure would have been red from
+ * the start. Read the `KnownViolation` doc in axe.ts before you add one; it says what the narrower
+ * key still cannot see.
  */
 const UI_CONTRAST: readonly KnownViolation[] = []
 
