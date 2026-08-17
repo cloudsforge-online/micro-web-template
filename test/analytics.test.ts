@@ -51,13 +51,32 @@ test('the head names the analytics property, in a meta tag read at runtime', () 
 
 test('the head does NOT carry the tag itself, which would set a cookie before any answer', () => {
   // The whole argument for the meta tag. Under ePrivacy Art. 5(3) an analytics cookie set before
-  // consent is a violation that a banner underneath it does not cure, and the stock snippet sets
-  // `_ga` on load. `@cloudsforge/ui/consent` injects the script from exactly one place: Accept.
-  for (const forbidden of ['googletagmanager.com', 'gtag(', 'analytics.js', 'google-analytics.com']) {
+  // consent is a violation that a banner underneath it does not cure, and Google's stock snippet —
+  // a loader for its tag manager followed by a config call — sets `_ga` the moment it loads.
+  // `@cloudsforge/ui/consent` injects that script from exactly one place: Accept.
+  //
+  // WRITTEN AS A PROPERTY OF EVERY SCRIPT, NOT AS A LIST OF VENDOR NAMES. The first draft matched
+  // four literal vendor strings and failed CI, which was the right answer to the wrong question:
+  // micro-org's `source-scan` step forbids those exact strings in every file of every frontend
+  // (AD-21), and it blanks comments before matching, so a test asserting their ABSENCE is
+  // indistinguishable to it from a page loading them. There is no version of that list worth
+  // smuggling past the scan, because the scan already checks it on this whole repository and does
+  // it better. What is left for this file to assert is the stronger, vendor-free property: this
+  // document loads nothing off-origin and runs nothing inline, so NOTHING can execute here before
+  // the banner is answered — which also holds for the next vendor, whoever that turns out to be.
+  const scripts = [...HTML.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
+  assert.ok(scripts.length > 0, 'index.html has no script at all — is this still a Vite entry point?')
+  for (const [, attrs, body] of scripts) {
     assert.equal(
-      HTML.includes(forbidden),
-      false,
-      `index.html loads the tag itself (${forbidden}) — it must carry the ID and nothing else`,
+      (body ?? '').trim(),
+      '',
+      'index.html runs an inline script; nothing may run in this document before an answer',
+    )
+    const src = /\bsrc="([^"]*)"/.exec(attrs ?? '')?.[1] ?? ''
+    assert.match(
+      src,
+      /^\.{0,2}\//,
+      `index.html loads "${src}" — only a same-origin, path-relative script may load before an answer`,
     )
   }
 })
