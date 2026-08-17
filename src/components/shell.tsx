@@ -5,7 +5,7 @@
  * that makes moving between seven surfaces feel like one application. Everything this app adds
  * goes BELOW it.
  */
-import { CloudsForgeBar, CloudsForgeFooter } from '@cloudsforge/ui'
+import { CloudsForgeBar, CloudsForgeFooter, CookieBanner } from '@cloudsforge/ui'
 import { NavLink, Outlet } from 'react-router-dom'
 import { PRODUCT } from '../lib/hosts.ts'
 import { useSession } from '../lib/auth.tsx'
@@ -69,6 +69,23 @@ export function AppShell() {
         operator should be able to reach Admin from any page.
       */}
       <CloudsForgeFooter current={PRODUCT} account={account} />
+
+      {/*
+        LAST in the document, and therefore last in the tab order. That is deliberate: the banner
+        is a dialog and is explicitly NOT modal, so a reader who came here to read a page can read
+        it and answer afterwards. A consent banner that traps focus is the coercion the regulation
+        is about. It renders nothing at all until it knows the reader has not already answered, and
+        nothing on an origin where analytics would not report anyway.
+
+        Reject and Accept are one class with no modifier — see `.cf-consent__choice` in ui.css.
+        Nothing in this repository's stylesheet may make one of them louder than the other.
+
+        It is here rather than left to each surface because this is the half of the bargain that
+        the meta tag in index.html cannot keep on its own: an ID with no banner is a page that
+        promises a choice in the privacy notice and offers none (micro-org#313, in reverse). The
+        two go in together or neither does, and test/analytics.test.ts is what says so.
+      */}
+      <CookieBanner />
     </>
   )
 }
