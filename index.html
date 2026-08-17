@@ -17,6 +17,42 @@
       rather than a configuration: it names the artefact, it does not tell it where it is running.
     -->
     <meta name="cf-release" content="dev" />
+
+    <!--
+      THE GOOGLE ANALYTICS MEASUREMENT ID, AND NOT THE GOOGLE ANALYTICS TAG.
+      ────────────────────────────────────────────────────────────────────────────────────────
+      There is deliberately no loader script for Google's tag in this file, and there must never be
+      one. (Its host and its global function are not written out here either, so that a grep for
+      either over this file answers zero.) The stock snippet fetches a third-party script and sets
+      `_ga` on load — before any banner has been drawn, let alone answered — and under ePrivacy
+      Art. 5(3) an analytics cookie set before consent is a violation that a banner underneath it
+      does not cure. `@cloudsforge/ui/consent` injects the tag from exactly one place: the Accept
+      button.
+
+      It is a meta tag rather than a build-time constant because test/no-build-time-config.test.ts
+      greps for those and fails the build — an artefact with an environment frozen into it is not
+      the artefact that passed CI. (That test greps this file too, which is why the prefix is not
+      spelled out here.) The ID is an identity rather than a configuration: it names the property,
+      it does not say where the bundle is running. An absent or empty value means analytics is
+      simply off, which is what a local `pnpm dev` gets.
+
+      ── WHY IT IS IN THE TEMPLATE (micro-org#487) ─────────────────────────────────────────────
+      Because the defect is an OMISSION, and the template is where an omission gets inherited —
+      the same argument brand-chrome.test.ts already makes about the favicon. The tag was live on
+      the marketing site and on no other surface: every frontend cut from here shipped with no
+      measurement of any kind and nobody noticed, because nothing anywhere asserted that a page
+      can report a page view. The three surfaces that legitimately do NOT carry this — the
+      operator console, the operator's dashboard and the synthetic-traffic runner — each say so in
+      their own index.html, in writing. Deleting this line is a decision a surface must make on
+      purpose and record, not one it makes by forgetting.
+
+      It is inseparable from the other two halves: `initAnalytics()` in src/main.tsx primes Consent
+      Mode DENIED before anything runs, and `<CookieBanner />` in the shell is the only thing that
+      can change that. test/analytics.test.ts fails if any one of the three goes missing, because
+      a page that carries the ID and draws no banner is worse than one that carries neither.
+    -->
+    <meta name="cf-analytics" content="G-ZFBLKK519K" />
+
     <!--
       PLACEHOLDER CHROME — replace these four files with the set for YOUR surface, from
       micro-brand's `assets/<surface>/`. They are the company marks so that a freshly cut frontend
