@@ -65,6 +65,21 @@ describe('toChartData()', () => {
   it('labels in UTC, so two people reading one chart agree about when', () => {
     assert.equal(labelFor('2026-03-14T09:05:00.000Z'), '09:05')
     assert.equal(labelFor('2026-03-14T09:05:00.000Z', 'day'), '14 Mar')
+    // ── SEPTEMBER, WHICH `month: 'short'` SPELLS `Sept` IN en-GB ────────────────────────────
+    //
+    // Four characters where the other eleven are three. On a day axis the labels are laid out
+    // assuming one width, so a series crossing 1 September stopped lining up with its bars — and
+    // every bundle scaffolded from this template inherited it. One fixed date per month, because
+    // a single sample has an eleven-in-twelve chance of missing the one that is wrong.
+    const labels = [
+      '15 Jan', '15 Feb', '15 Mar', '15 Apr', '15 May', '15 Jun',
+      '15 Jul', '15 Aug', '15 Sep', '15 Oct', '15 Nov', '15 Dec',
+    ]
+    labels.forEach((expected, month) => {
+      const iso = `2026-${(month + 1).toString().padStart(2, '0')}-15T09:05:00.000Z`
+      assert.equal(labelFor(iso, 'day'), expected)
+    })
+    assert.equal(new Set(labels.map((l) => l.length)).size, 1, 'a day axis must not change width')
   })
 
   it('does not throw on an unparseable timestamp', () => {

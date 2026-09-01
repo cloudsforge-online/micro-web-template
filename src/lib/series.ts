@@ -26,10 +26,39 @@ export interface SeriesPoint {
 export function labelFor(iso: string, granularity: 'hour' | 'day' = 'hour'): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
-  return granularity === 'day'
-    ? d.toLocaleDateString('en-GB', { timeZone: 'UTC', day: '2-digit', month: 'short' })
-    : d.toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' })
+  if (granularity === 'day') {
+    return `${d.getUTCDate().toString().padStart(2, '0')} ${SHORT_MONTHS[d.getUTCMonth()]}`
+  }
+  return d.toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' })
 }
+
+/**
+ * The three-letter month names, written out rather than asked of the runtime.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * **`month: 'short'` IS NOT THREE LETTERS IN en-GB, AND THE MONTH IT IS NOT IS SEPTEMBER.**
+ *
+ * `toLocaleDateString('en-GB', { month: 'short' })` returns `Sept` for September and three letters
+ * for every other month. That is CLDR's en-GB data rather than a bug in any runtime.
+ *
+ * On a time axis it is the worst possible place for it: labels under a day-granularity chart are
+ * laid out on the assumption that they are all the same width, so a series crossing 1 September
+ * has one label wider than its neighbours and the ticks stop lining up with the bars.
+ *
+ * **AND THIS FILE IS A TEMPLATE.** Every bundle scaffolded from it inherits whatever is written
+ * here, which is why the fix is a literal table rather than a different locale: `en-US` gives
+ * `Sep` today, but the answer would then depend on the CLDR revision each host's runtime was built
+ * with and on whether it is a full-icu build at all — a small-icu Node falls back to `en-US`
+ * whatever is asked for. A table is the same twelve answers in every copy, for ever.
+ *
+ * The `hour` branch keeps `toLocaleTimeString`: digits and a colon are the same in every locale
+ * CLDR ships, and there is no month in it.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+const SHORT_MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const
 
 /** An API time series as chart data, oldest first — the direction an axis reads. */
 export function toChartData(points: readonly SeriesPoint[], granularity: 'hour' | 'day' = 'hour'): ChartDatum[] {
