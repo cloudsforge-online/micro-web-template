@@ -5,7 +5,7 @@
  * addresses `http://localhost:4006` when served from localhost and `https://trade.<apex>` when
  * served from the apex. Nothing here reads a build-time constant; see the note in vite.config.ts.
  */
-import { cloudsforgeHosts, type CloudsForgeHosts, type SurfaceKey } from '@cloudsforge/ui'
+import { apiBaseFor, cloudsforgeHosts, type CloudsForgeHosts, type SurfaceKey } from '@cloudsforge/ui'
 
 /**
  * The surface this application IS.
@@ -19,26 +19,37 @@ export const PRODUCT: SurfaceKey = 'trade'
 export const APP_NAME = 'trade'
 
 /**
- * The base URL for this app's OWN API.
+ * The base URL for this app's OWN API — the shared derivation, not a copy of it.
  *
- * In production the SPA and its API are the same origin — nginx serves the bundle, the service
- * serves `/v1` behind the same hostname — so the base is the empty string and requests stay
- * relative. Under `pnpm dev` the page is on Vite's port while the service is on the registry's
- * dev port, so the base is absolute and the request goes cross-origin.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * **THIS FILE HELD THE SIXTEENTH COPY OF A REGISTRY DERIVATION, AND IT IS THE ONE EVERY NEW
+ * SURFACE IS SCAFFOLDED FROM.**
  *
- * The difference is derived by COMPARING ORIGINS rather than by a `DEV` flag, because a flag is a
- * build-time constant and this repository has none: an image built for production and opened on
- * localhost would then point at a host that is not there.
+ * What stood here compared origins and answered `''` for same-origin, `hosts[key]` otherwise.
+ * That was right while every surface was its own hostname and wrong in both branches once a
+ * surface could be mounted at a PATH, which the apex consolidation made true of six of them:
+ *
+ *   * same origin → `''` sends a relative `/v1/overview` from a page at `/trade/anything` to the
+ *     APEX ROOT, which is micro-site's. micro-site answers its SPA shell for an unknown path, so
+ *     the call returns 200 with an HTML body where JSON was expected: every panel in a failure
+ *     state with a completely healthy network tab.
+ *   * cross origin → `hosts[key]` is the surface's PUBLIC address, mount included. Under
+ *     `pnpm dev` there is no Traefik to strip that mount, so the request goes to
+ *     `http://localhost:4006/trade/v1/overview` and the service — which serves `/v1/…` at its
+ *     root — 404s every call a developer makes.
+ *
+ * The second one is how this was found: `BJ-TEMPLATE-BOOT` and six other journeys failed on an
+ * unstubbed `http://localhost:4006/trade/v1/overview`, and the template's CI had not run in the
+ * fortnight the consolidation landed in.
+ *
+ * `apiBaseFor` in `@cloudsforge/ui` answers both correctly and is property-tested over the whole
+ * registry. Its own header says why it exists: this estate has been bitten three times by a
+ * SECOND copy of a registry derivation. This was the copy.
+ *
+ * Re-exported rather than deleted because the tests and `lib/api.ts` both name it.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
  */
-export function resolveApiBase(pageOrigin: string, hosts: CloudsForgeHosts, key: SurfaceKey): string {
-  const own = hosts[key]
-  // With no page origin there is nothing for a relative URL to resolve against, so the absolute
-  // form is the only correct answer.
-  if (!pageOrigin) return own
-  // A surface may carry a basePath (the wallet is a path inside Hub), so compare ORIGINS rather
-  // than whole URLs — otherwise every such surface would look cross-origin to itself.
-  return new URL(own).origin === pageOrigin ? '' : own
-}
+export const resolveApiBase = apiBaseFor
 
 /** Every CloudsForge base URL, for the current environment. */
 export function hosts(): CloudsForgeHosts {
